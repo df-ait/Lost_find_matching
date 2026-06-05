@@ -17,7 +17,7 @@ typedef struct {
 } ItemList;
 
 //创建链表头
-ItemList *list_create(void);
+ItemList *list_create();
 //销毁链表
 void      list_destroy(ItemList *list);
 //加入元素

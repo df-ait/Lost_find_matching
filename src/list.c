@@ -2,7 +2,7 @@
 #include <string.h>
 #include "list.h"
 
-ItemList *list_create(void)
+ItemList *list_create()
 {
     ItemList *list = (ItemList *)malloc(sizeof(ItemList));
     if (!list) return NULL;
