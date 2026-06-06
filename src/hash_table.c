@@ -27,7 +27,7 @@ void hash_destroy(HashTable *table)
     if (!table) return;
     for (int i = 0; i < table->capacity; i++) {
         HashNode *p = table->buckets[i];
-        while (p) {
+        while (p != NULL) {
             HashNode *n = p->next;
             free(p);
             p = n;
