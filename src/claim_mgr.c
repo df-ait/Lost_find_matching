@@ -45,15 +45,18 @@ int claim_submit(ClaimStore *cs, ItemStore *items,
     }
 
     double score = calc_match_score(item, owner_info);
-    int secret_ok = verify_secret(item, answer_secret);
+    int has_secret = item_has_secret(item);
 
     if (score < MATCH_THRESHOLD) {
         printf("  认领失败：匹配得分 %.1f 低于阈值 %.1f。\n", score, MATCH_THRESHOLD);
         return -1;
     }
-    if (!secret_ok) {
-        printf("  认领失败：独有特征验证未通过，请补充更准确的信息。\n");
-        return -1;
+
+    if (has_secret) {
+        if (!verify_secret(item, answer_secret)) {
+            printf("  认领失败：独有特征验证未通过，请补充更准确的信息。\n");
+            return -1;
+        }
     }
 
     ClaimRequest req;
@@ -68,12 +71,18 @@ int claim_submit(ClaimStore *cs, ItemStore *items,
     strncpy(req.answerSecret, answer_secret, SECRET_LEN - 1);
     req.matchScore = score;
     req.status = CLAIM_PENDING;
+    req.adminReviewOnly = has_secret ? 0 : 1;
 
     if (queue_enqueue(cs->pending, &req) != 0)
         return -1;
 
-    printf("  认领申请已提交！单号: %s，匹配分: %.1f，等待管理员审核。\n",
-           req.claimId, score);
+    if (req.adminReviewOnly)
+        printf("--认领申请已提交！单号: %s，匹配分: %.1f。\n"
+               "--该物品登记时未录入保密特征，须管理员人工审核（如现场解锁、证件核对等）。\n",
+               req.claimId, score);
+    else
+        printf("--认领申请已提交！单号: %s，匹配分: %.1f，等待管理员审核。\n",
+               req.claimId, score);
     return 0;
 }
 
@@ -93,10 +102,16 @@ int claim_review_front(ClaimStore *cs, ItemStore *items, int approve)
     printf("--物品编号: %s\n", req.itemId);
     if (item) {
         printf("--物品名称: %s\n", item->name);
-        printf("--保密特征: %s\n", item->secretFeatures);
+        if (item_has_secret(item))
+            printf("--保密特征: %s\n", item->secretFeatures);
+        else
+            printf("--保密特征: （登记时未录入）\n");
     }
     printf("--申请人: %s  --\n电话: %s\n", req.ownerName, req.phone);
-    printf("--特征答案: %s\n", req.answerSecret);
+    if (req.adminReviewOnly)
+        printf("--审核方式: **须管理员人工审核**（登记时无保密特征，无法自动验特征）\n");
+    if (req.answerSecret[0])
+        printf("--特征答案: %s\n", req.answerSecret);
     printf("--匹配得分: %.1f\n", req.matchScore);
 
     if (!approve) {

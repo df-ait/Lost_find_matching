@@ -13,7 +13,7 @@
 #define CATEGORY_LEN    32 //类别
 
 #define MAX_TOP_K       10  //寻物最多展示前X条结果
-#define HASH_CAPACITY   101 //哈希表桶数量，这里用指数以减少冲突
+#define HASH_CAPACITY   101 //哈希表桶数量，这里用质数以减少冲突
 #define MATCH_THRESHOLD 60.0    //最低匹配分，低于这个分不让领失物
 #define TIME_WINDOW_SEC (2 * 3600)   //精确寻物默认 ±2 小时
 
@@ -68,6 +68,7 @@ typedef struct ClaimRequest {
     char answerSecret[SECRET_LEN];
     double matchScore; //匹配得分
     ClaimStatus status; //审核结果
+    int adminReviewOnly; // 1=登记时未填保密特征，须管理员人工审核
 } ClaimRequest;
 
 //---------- 匹配结果（堆元素） ----------

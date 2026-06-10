@@ -95,14 +95,17 @@ static void menu_register()
     }
     read_line("--拾取/交到地点: ", item.location, LOC_LEN);
     read_line("--外观描述(对外可见): ", item.description, DESC_LEN);
-    read_line("--独有特征(保密，认领验证用): ", item.secretFeatures, SECRET_LEN);
+    read_line("--独有特征(保密，可回车跳过；跳过则认领须管理员人工审核): ",
+              item.secretFeatures, SECRET_LEN);
 
     item.status = ITEM_IN_STORAGE;
     item.registerTime = time(NULL);
 
-    if (store_register_item(g_items, &item) == 0)
+    if (store_register_item(g_items, &item) == 0) {
         printf("\n--登记成功！物品编号: %s\n", item.itemId);
-    else
+        if (!item_has_secret(&item))
+            printf("--提示：未录入保密特征，失主认领时将跳过特征校验，须管理员人工审核。\n");
+    } else
         printf("\n--登记失败，请重试。\n");
 }
 
@@ -194,9 +197,15 @@ static void menu_claim_submit(void)
     read_line("--要领回的物品编号: ", itemId, ID_LEN);
     read_line("--失主姓名: ", owner.ownerName, NAME_LEN);
     read_line("--联系电话: ", owner.phone, PHONE_LEN);
-    read_line("--独有特征答案: ", answer, SECRET_LEN);
 
     Item *it = store_find_by_id(g_items, itemId);
+    if (it && !item_has_secret(it)) {
+        printf("--该物品登记时未录入保密特征，无需填写特征答案，提交后须管理员人工审核。\n");
+        answer[0] = '\0';
+    } else {
+        read_line("--独有特征答案: ", answer, SECRET_LEN);
+    }
+
     if (it) {
         owner.itemName[0] = '\0';
         strncpy(owner.itemName, it->name, NAME_LEN - 1);

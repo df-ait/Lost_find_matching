@@ -79,6 +79,16 @@ double calc_match_score(const Item *item, const LostReport *report)
     return score;
 }
 
+//登记时是否写了保密特征
+int item_has_secret(const Item *item)
+{
+    if (!item) return 0;
+    const char *p = item->secretFeatures;
+    while (*p == ' ' || *p == '\t')
+        p++;
+    return *p != '\0';
+}
+
 int verify_secret(const Item *item, const char *answer)
 {
     if (!item || !answer || !answer[0]) return 0;
@@ -204,7 +214,7 @@ static const char *status_str(ItemStatus s)
 void print_match_results(const MatchResult *results, int count)
 {
     if (!results || count <= 0) {
-        printf("  （无匹配结果）\n");
+        printf("!!（无匹配结果）\n");
         return;
     }
     printf("\n  %-14s %-8s %-12s %-18s %-10s %s\n",
@@ -218,6 +228,6 @@ void print_match_results(const MatchResult *results, int count)
                results[i].item.category,
                status_str(results[i].item.status),
                results[i].item.location);
-        printf("    描述: %s\n", results[i].item.description);
+        printf("----描述: %s\n", results[i].item.description);
     }
 }
