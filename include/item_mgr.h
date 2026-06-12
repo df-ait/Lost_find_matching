@@ -31,5 +31,8 @@ void       store_browse_in_storage(const ItemStore *store);
 void       generate_item_id(char *buf, int id_num);
 //生成寻物id
 void       generate_claim_id(char *buf, int id_num);
+// 登记读完 secretFeatures 后调用一次，写入 has_secret
+void       item_bind_secret(Item *item);
+int        item_has_secret(const Item *item);
 
 #endif /* ITEM_MGR_H */

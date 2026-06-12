@@ -14,8 +14,6 @@ typedef struct {
 
 //计算匹配分数
 double calc_match_score(const Item *item, const LostReport *report);
-//登记时是否录入了有效保密特征
-int item_has_secret(const Item *item);
 //匹配秘密信息
 int verify_secret(const Item *item, const char *answer);
 //精确寻物

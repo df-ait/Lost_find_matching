@@ -16,6 +16,7 @@
 #define HASH_CAPACITY   101 //哈希表桶数量，这里用质数以减少冲突
 #define MATCH_THRESHOLD 60.0    //最低匹配分，低于这个分不让领失物
 #define TIME_WINDOW_SEC (2 * 3600)   //精确寻物默认 ±2 小时
+#define NET_DEFAULT_PORT 5555        //Socket默认端口
 
 //---------- 物品状态 ---------- 
 typedef enum {
@@ -40,6 +41,7 @@ typedef struct Item {
     char location[LOC_LEN];
     char description[DESC_LEN];
     char secretFeatures[SECRET_LEN]; //保密，列表不展示
+    int  has_secret;                 // 登记时设置：1=有保密特征，0=无（须人工审核）
     ItemStatus status;
     time_t registerTime;//系统登记时间
 } Item;

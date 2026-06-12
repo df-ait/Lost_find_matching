@@ -41,6 +41,20 @@ void generate_claim_id(char *buf, int id_num)
     snprintf(buf, ID_LEN, "CL%08d", id_num);
 }
 
+//登记时调用，看secretFeatures是否为空（跳过空格），写入has_secret
+void item_bind_secret(Item *item)
+{
+    if (!item) return;
+    const char *p = item->secretFeatures;
+    while (*p == ' ' || *p == '\t') p++;
+    item->has_secret = (*p != '\0') ? 1 : 0;
+}
+
+int item_has_secret(const Item *item)
+{
+    return item && item->has_secret;
+}
+
 //插入物品，往哈希表，链表，二叉搜索树都插入
 //任何一步失败了都会直接返回
 int store_register_item(ItemStore *store, const Item *item)
@@ -93,7 +107,7 @@ static void print_item_row(const Item *item, void *ctx)
     printf("----描述: %s\n", item->description);
 }
 
-//打印仓库内容
+//打印仓库内容，扫链表
 void store_browse_in_storage(const ItemStore *store)
 {
     if (!store) return;

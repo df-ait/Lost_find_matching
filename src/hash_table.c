@@ -37,7 +37,7 @@ void hash_destroy(HashTable *table)
     free(table);
 }
 
-//把字符串映射为 [0,capacity - 1]范围的整数，用作下标
+//字符串所有ASCII码值相加取余，把字符串映射为[0,capacity - 1]范围的整数，用作下标
 unsigned hash_func(const char *key, int capacity)
 {
     unsigned h = 0;
