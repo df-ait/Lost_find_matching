@@ -90,6 +90,43 @@ int store_set_status(ItemStore *store, const char *itemId, ItemStatus status)
     return 0;
 }
 
+int store_mark_claimed(ItemStore *store, const char *itemId,
+                       const char *claimerName, const char *claimerPhone,
+                       time_t claimTime)
+{
+    Item *it = store_find_by_id(store, itemId);
+    if (!it) return -1;
+
+    it->status = ITEM_CLAIMED;
+    if (claimerName)
+        strncpy(it->claimerName, claimerName, NAME_LEN - 1);
+    else
+        it->claimerName[0] = '\0';
+    if (claimerPhone)
+        strncpy(it->claimerPhone, claimerPhone, PHONE_LEN - 1);
+    else
+        it->claimerPhone[0] = '\0';
+    it->claimTime = claimTime;
+
+    ListNode *node = list_find_by_id(store->all_items, itemId);
+    if (node) {
+        node->item.status = ITEM_CLAIMED;
+        strncpy(node->item.claimerName, it->claimerName, NAME_LEN - 1);
+        strncpy(node->item.claimerPhone, it->claimerPhone, PHONE_LEN - 1);
+        node->item.claimTime = claimTime;
+    }
+
+    BstNode *bn = bst_find_by_id(store->by_time, itemId);
+    if (bn) {
+        bn->item.status = ITEM_CLAIMED;
+        strncpy(bn->item.claimerName, it->claimerName, NAME_LEN - 1);
+        strncpy(bn->item.claimerPhone, it->claimerPhone, PHONE_LEN - 1);
+        bn->item.claimTime = claimTime;
+    }
+
+    return 0;
+}
+
 //打印当前物品状态
 static void print_item_row(const Item *item, void *ctx)
 {
@@ -115,8 +152,13 @@ void store_browse_in_storage(const ItemStore *store)
            "编号", "名称", "类别", "交到招领处时间", "状态");
     printf("  %s\n", "----------------------------------------------------------------");
 
+    int count = 0;
     for (ListNode *p = store->all_items->head; p; p = p->next) {
-        if (p->item.status == ITEM_IN_STORAGE)
+        if (p->item.status == ITEM_IN_STORAGE) {
             print_item_row(&p->item, NULL);
+            count++;
+        }
     }
+    if (count == 0)
+        printf("  （当前无在库物品）\n");
 }

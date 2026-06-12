@@ -18,21 +18,25 @@ typedef struct {
 //创建物品仓库
 ItemStore *store_create();
 //销毁
-void       store_destroy(ItemStore *store);
+void store_destroy(ItemStore *store);
 //物品注册(有新的失物)
-int        store_register_item(ItemStore *store, const Item *item);
+int store_register_item(ItemStore *store, const Item *item);
 //通过ID找物品
-Item      *store_find_by_id(ItemStore *store, const char *itemId);
+Item *store_find_by_id(ItemStore *store, const char *itemId);
 //审核通过与否
-int        store_set_status(ItemStore *store, const char *itemId, ItemStatus status);
+int store_set_status(ItemStore *store, const char *itemId, ItemStatus status);
+/* 标记已认领并写入认领人信息，三处索引同步 */
+int store_mark_claimed(ItemStore *store, const char *itemId,
+                              const char *claimerName, const char *claimerPhone,
+                              time_t claimTime);
 //浏览库中失物
-void       store_browse_in_storage(const ItemStore *store);
+void store_browse_in_storage(const ItemStore *store);
 //生成物品id
-void       generate_item_id(char *buf, int id_num);
+void generate_item_id(char *buf, int id_num);
 //生成寻物id
-void       generate_claim_id(char *buf, int id_num);
-// 登记读完 secretFeatures 后调用一次，写入 has_secret
-void       item_bind_secret(Item *item);
-int        item_has_secret(const Item *item);
+void generate_claim_id(char *buf, int id_num);
+//登记读完 secretFeatures 后调用一次，写入 has_secret
+void item_bind_secret(Item *item);
+int item_has_secret(const Item *item);
 
 #endif /* ITEM_MGR_H */

@@ -159,11 +159,7 @@ int main(int argc, char **argv)
     }
 
     printf("失物招领客户端\n");
-    if (ensure_connected() != 0) {
-        net_cleanup();
-        return 1;
-    }
-    printf("--已连接服务器 %s:%d（每次操作将自动重连）\n", g_host, g_port);
+    printf("--目标服务器 %s:%d（每次操作自动连接）\n", g_host, g_port);
 
     while (1) {
         print_client_menu();

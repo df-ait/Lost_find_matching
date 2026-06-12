@@ -12,6 +12,7 @@
 #include "ui_util.h"
 #include "net_util.h"
 #include "protocol.h"
+#include "item_persist.h"
 
 static ItemStore  *g_items  = NULL;
 static ClaimStore *g_claims = NULL;
@@ -29,17 +30,11 @@ static void admin_menu_register(void)
     memset(&item, 0, sizeof(item));
 
     char timebuf[64];
-    //增加物品数量，生成唯一编号，这里不加锁可能会被多个线程同时
-    pthread_mutex_lock(&g_store_mutex);
-    g_items->id_counter++;
-    generate_item_id(item.itemId, g_items->id_counter);
-    pthread_mutex_unlock(&g_store_mutex);
-
     ui_read_line("--物品名称: ", item.name, NAME_LEN);
     ui_read_line("--物品类别(如钱包/钥匙/手机): ", item.category, CATEGORY_LEN);
     ui_read_line("--交到招领处时间 (YYYY-MM-DD HH:MM): ", timebuf, sizeof(timebuf));
     if (ui_parse_datetime(timebuf, &item.foundTime) != 0) {
-        printf("!!时间格式错误。\n");
+        printf("!!时间格式错误，请使用 YYYY-MM-DD HH:MM（如 2026-05-18 14:30）。\n");
         return;
     }
     ui_read_line("--拾取/交到地点: ", item.location, LOC_LEN);
@@ -51,16 +46,21 @@ static void admin_menu_register(void)
     item.status = ITEM_IN_STORAGE;
     item.registerTime = time(NULL);
 
-    //加锁登记新的失物
     pthread_mutex_lock(&g_store_mutex);
+    g_items->id_counter++;
+    generate_item_id(item.itemId, g_items->id_counter);
     int rc = store_register_item(g_items, &item);
+    if (rc == 0)
+        store_save_items(g_items, ITEM_PERSIST_PATH);
+    else
+        g_items->id_counter--;
     pthread_mutex_unlock(&g_store_mutex);
 
-    if(rc == 0){
+    if (rc == 0) {
         printf("\n--登记成功！物品编号: %s\n", item.itemId);
         if (!item.has_secret)
             printf("--提示：未录入保密特征，失主认领时将跳过特征校验，须管理员人工审核。\n");
-    }else{
+    } else {
         printf("\n--登记失败，请重试。\n");
     }
 }
@@ -120,6 +120,18 @@ static void admin_menu_query(void)
         printf("--保密特征: %s\n", copy.secretFeatures);
     else
         printf("--保密特征: （未录入，认领须人工审核）\n");
+    if (copy.status == ITEM_CLAIMED) {
+        char cbuf[32];
+        if (copy.claimTime > 0) {
+            struct tm *ct = localtime(&copy.claimTime);
+            strftime(cbuf, sizeof(cbuf), "%Y-%m-%d %H:%M", ct);
+            printf("--认领人: %s\n", copy.claimerName);
+            printf("--认领电话: %s\n", copy.claimerPhone);
+            printf("--认领时间: %s\n", cbuf);
+        } else {
+            printf("--认领人: %s\n", copy.claimerName[0] ? copy.claimerName : "（未记录）");
+        }
+    }
 }
 
 //打印仓库内失物
@@ -152,11 +164,7 @@ static void *client_accept_thread(void *arg)
         if (client_fd < 0)
             continue;
 
-        //加锁处理一次请求
-        pthread_mutex_lock(&g_store_mutex);
-        protocol_serve_client(client_fd, g_items, g_claims);
-        pthread_mutex_unlock(&g_store_mutex);
-
+        protocol_serve_client(client_fd, g_items, g_claims, &g_store_mutex);
         net_close(client_fd);
     }
     return NULL;
@@ -181,6 +189,12 @@ int main(int argc, char **argv)
         fprintf(stderr, "初始化失败，内存不足。\n");
         return 1;
     }
+
+    if(store_load_items(g_items, ITEM_PERSIST_PATH) != 0)
+        fprintf(stderr, "警告：加载数据文件失败，将从空库开始。\n");
+    else
+        printf("--已从 %s 加载在库物品（当前 id_counter=%d）\n",
+               ITEM_PERSIST_PATH, g_items->id_counter);
 
     g_listen_fd = net_listen_tcp(port);
     if (g_listen_fd < 0) {

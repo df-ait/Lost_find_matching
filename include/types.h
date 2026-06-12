@@ -44,6 +44,9 @@ typedef struct Item {
     int  has_secret;                 // 登记时设置：1=有保密特征，0=无（须人工审核）
     ItemStatus status;
     time_t registerTime;//系统登记时间
+    char claimerName[NAME_LEN];   // 认领人姓名（已认领时填写）
+    char claimerPhone[PHONE_LEN]; // 认领人电话
+    time_t claimTime;             // 认领通过时间，0 表示未认领
 } Item;
 
 // ---------- 寻物登记（失主查找条件） ----------

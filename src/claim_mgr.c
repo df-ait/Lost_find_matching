@@ -4,6 +4,7 @@
 #include <time.h>
 #include "claim_mgr.h"
 #include "match.h"
+#include "item_persist.h"
 
 static int claim_submit_core(ClaimStore *cs, ItemStore *items,
                                const char *itemId, const LostReport *owner_info,
@@ -194,7 +195,8 @@ int claim_process_front(ClaimStore *cs, ItemStore *items, int approve)
 
     queue_dequeue(cs->pending, &req);
     req.status = CLAIM_APPROVED;
-    store_set_status(items, req.itemId, ITEM_CLAIMED);
+    store_mark_claimed(items, req.itemId, req.ownerName, req.phone, time(NULL));
+    store_save_items(items, ITEM_PERSIST_PATH);
     printf("\n--审核结果: 已通过，物品状态已更新为「已认领」\n");
     return 0;
 }

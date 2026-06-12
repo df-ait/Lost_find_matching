@@ -79,42 +79,90 @@ double calc_match_score(const Item *item, const LostReport *report)
     return score;
 }
 
+static const char *utf8_next(const char *p)
+{
+    if (!p || !*p) return p;
+    unsigned char c = (unsigned char)*p;
+    if (c < 0x80) return p + 1;
+    if ((c & 0xE0) == 0xC0) return p + 2;
+    if ((c & 0xF0) == 0xE0) return p + 3;
+    if ((c & 0xF8) == 0xF0) return p + 4;
+    return p + 1;
+}
+
+static int is_secret_delim(char c)
+{
+    return c == ' ' || c == '\t' || c == ','
+        || c == '，' || c == '、' || c == ';' || c == '；'
+        || c == ':' || c == '：';
+}
+
+/* secret 中任意连续 min_chars 个字符（按 UTF-8）出现在 answer 里即算命中 */
+static int share_char_window(const char *secret, const char *answer, int min_chars)
+{
+    if (!secret || !answer || min_chars <= 0) return 0;
+
+    for (const char *p = secret; *p; p = utf8_next(p)) {
+        const char *end = p;
+        int n = 0;
+        while (*end && n < min_chars) {
+            end = utf8_next(end);
+            n++;
+        }
+        if (n < min_chars) break;
+
+        char chunk[32];
+        int blen = (int)(end - p);
+        if (blen >= (int)sizeof(chunk)) blen = (int)sizeof(chunk) - 1;
+        memcpy(chunk, p, (size_t)blen);
+        chunk[blen] = '\0';
+        if (str_icontains(answer, chunk))
+            return 1;
+    }
+    return 0;
+}
+
 int verify_secret(const Item *item, const char *answer)
 {
     if (!item || !answer || !answer[0]) return 0;
-    if (str_icontains(item->secretFeatures, answer))
+    const char *sec = item->secretFeatures;
+    if (!sec[0]) return 0;
+
+    /* 1. 双向子串：登记特征与答案互相包含即可 */
+    if (str_icontains(sec, answer) || str_icontains(answer, sec))
         return 1;
 
-    //关键词命中，按空格/逗号拆分secret，统计命中数，先拷贝一份再进行该操作
+    /* 2. 分词：按空格与中英文标点拆分，任一词（≥2 字节）命中即过 */
     char buf[SECRET_LEN];
-    strncpy(buf, item->secretFeatures, SECRET_LEN - 1);
+    strncpy(buf, sec, SECRET_LEN - 1);
     buf[SECRET_LEN - 1] = '\0';
 
-    //类似于分词器
-    int hits = 0;
-    int tokens = 0;
     char *p = buf;
-    while (*p){
-        while (*p == ' ' || *p == ',') {
+    while (*p) {
+        while (*p && is_secret_delim(*p)) {
             *p = '\0';
             p++;
         }
         if (!*p) break;
-        char *start = p;//将每个词的开头赋值给start
-        while (*p && *p != ' ' && *p != ',') p++;
-        if (*p){ 
-            *p = '\0'; 
-            p++; 
+
+        char *start = p;
+        while (*p && !is_secret_delim(*p)) p++;
+        if (*p) {
+            *p = '\0';
+            p++;
         }
-        //存在这个词，才继续匹配
-        if (start[0]){
-            tokens++;//这个是分出来的秘密信息的词组数量
-            if (str_icontains(answer, start))
-                hits++;
+        if (start[0] && strlen(start) >= 2) {
+            if (str_icontains(answer, start) || str_icontains(start, answer))
+                return 1;
         }
     }
-    if (tokens == 0) return 0;
-    return hits >= 1 && (hits * 100 / tokens) >= 50;//命中 50%以上才返回1
+
+    /* 3. 滑动窗口：登记特征里任意连续 2 个汉字/字符出现在答案中即可
+     *    例：登记「内部有一张学生证」，答案「里面有学生证」→ 共享「学生证」 */
+    if (share_char_window(sec, answer, 2))
+        return 1;
+
+    return 0;
 }
 
 //地点匹配

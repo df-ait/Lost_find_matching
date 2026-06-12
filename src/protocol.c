@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 #include "protocol.h"
 #include "net_util.h"
 #include "match.h"
@@ -274,32 +275,38 @@ static int proto_handle_claim(int fd, ItemStore *items, ClaimStore *claims,
     return proto_send_ok_line(fd, msg);
 }
 
-//总流程
-void protocol_serve_client(int fd, ItemStore *items, ClaimStore *claims){
+//总流程：网络 I/O 在锁外，仅业务处理时持锁
+void protocol_serve_client(int fd, ItemStore *items, ClaimStore *claims,
+                           pthread_mutex_t *store_mutex)
+{
     char cmd[64];
     char lines[16][256];
 
-    if(net_recv_line(fd, cmd, sizeof(cmd)) != 0)
+    if (net_recv_line(fd, cmd, sizeof(cmd)) != 0)
         return;
 
     int n = proto_read_block(fd, lines, 16);
-    if(n < 0){
+    if (n < 0) {
         proto_send_err(fd, "请求格式错误");
         return;
     }
 
-    if(strcmp(cmd, "SEARCH_PRECISE") == 0)
+    if (store_mutex) pthread_mutex_lock(store_mutex);
+
+    if (strcmp(cmd, "SEARCH_PRECISE") == 0)
         proto_handle_search_precise(fd, items, lines, n);
-    else if(strcmp(cmd, "SEARCH_FUZZY") == 0)
+    else if (strcmp(cmd, "SEARCH_FUZZY") == 0)
         proto_handle_search_fuzzy(fd, items, lines, n);
-    else if(strcmp(cmd, "LOOKUP") == 0)
+    else if (strcmp(cmd, "LOOKUP") == 0)
         proto_handle_lookup(fd, items, lines, n);
-    else if(strcmp(cmd, "CLAIM") == 0)
+    else if (strcmp(cmd, "CLAIM") == 0)
         proto_handle_claim(fd, items, claims, lines, n);
-    else if(strcmp(cmd, "PING") == 0)
+    else if (strcmp(cmd, "PING") == 0)
         proto_send_ok_line(fd, "PONG");
     else
         proto_send_err(fd, "未知命令");
+
+    if (store_mutex) pthread_mutex_unlock(store_mutex);
 }
 
 //------------------------------客户端---------------------------------------------
